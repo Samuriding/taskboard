@@ -78,7 +78,15 @@ var STS = [
   {v:"done",l:"完了",c:"#43A047",i:"●"}
 ];
 var DW = 36;
-var S = { tasks:[], members:[], loading:true, syncing:false, lastSync:null, view:"timeline", fA:null, fS:null, modal:null, eTask:null, toast:null, tTimer:null };
+
+// ─── 状態 ───
+var S = {
+  tasks:[], members:[], loading:true, syncing:false, lastSync:null,
+  view:"timeline", fA:null, fS:null,
+  modal:null, eTask:null, toast:null, tTimer:null,
+  // ★ 変更検知用：前回取得したデータのJSON文字列
+  prevTasksJSON:"", prevMembersJSON:""
+};
 
 function fmtD(d){var x=new Date(d);return(x.getMonth()+1)+"/"+x.getDate();}
 function toDS(d){var x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
@@ -91,8 +99,31 @@ function getSt(v){for(var i=0;i<STS.length;i++){if(STS[i].v===v)return STS[i];}r
 
 function showToast(msg,type){
   if(S.tTimer)clearTimeout(S.tTimer);
-  S.toast={m:msg,t:type||"ok"};render();
-  S.tTimer=setTimeout(function(){S.toast=null;render();},3000);
+  S.toast={m:msg,t:type||"ok"};
+  renderToast();
+  S.tTimer=setTimeout(function(){S.toast=null;renderToast();},3000);
+}
+
+// ★ トーストだけ独立して更新（画面全体を書き直さない）
+function renderToast(){
+  var el=document.getElementById("toast-container");
+  if(!el){el=document.createElement("div");el.id="toast-container";document.body.appendChild(el);}
+  if(S.toast){
+    el.innerHTML='<div class="toast" style="background:'+(S.toast.t==="err"?"#DC2626":"#1E293B")+'">'+esc(S.toast.m)+'</div>';
+  } else {
+    el.innerHTML="";
+  }
+}
+
+// ★ 同期インジケータだけ更新
+function updateSyncIndicator(){
+  var el=document.getElementById("sync-indicator");
+  if(!el)return;
+  var syncDot=S.syncing?"background:#1E88E5;animation:pulse 1s infinite":"background:#43A047";
+  var syncTxt=S.syncing?"同期中...":(S.lastSync?"最終同期 "+S.lastSync:"接続済み");
+  var syncCol=S.syncing?"#1E88E5":"#94A3B8";
+  el.innerHTML='<div style="width:7px;height:7px;border-radius:50%;'+syncDot+'"></div>'+syncTxt;
+  el.style.color=syncCol;
 }
 
 function hdrs(){return{"apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+SUPABASE_ANON_KEY,"Content-Type":"application/json","Prefer":"return=representation"};}
@@ -100,19 +131,51 @@ function apiFetch(path,opts){return fetch(SUPABASE_URL+"/rest/v1/"+path,Object.a
 
 function loadData(silent){
   if(!silent)S.syncing=true;
+  if(silent)updateSyncIndicator();
+
   return Promise.all([
     apiFetch("tasks?order=start_date.asc").then(function(r){return r.json();}),
     apiFetch("members?order=created_at.asc").then(function(r){return r.json();})
   ]).then(function(res){
-    S.tasks=res[0];S.members=res[1];
+    var newTasksJSON = JSON.stringify(res[0]);
+    var newMembersJSON = JSON.stringify(res[1]);
     S.lastSync=new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+
+    // ★ データが変わっていない場合は再描画しない
+    var dataChanged = (newTasksJSON !== S.prevTasksJSON) || (newMembersJSON !== S.prevMembersJSON);
+
+    S.tasks=res[0]; S.members=res[1];
+    S.prevTasksJSON=newTasksJSON;
+    S.prevMembersJSON=newMembersJSON;
+
+    if(silent && !dataChanged){
+      // データ変更なし → 同期インジケータだけ更新して終了
+      S.syncing=false;
+      updateSyncIndicator();
+      return;
+    }
+
+    // ★ モーダルが開いている場合は再描画しない（操作中のフォームを守る）
+    if(silent && S.modal){
+      S.syncing=false;
+      updateSyncIndicator();
+      return;
+    }
+
+    S.syncing=false;
+    S.loading=false;
+    render();
   }).catch(function(e){
     if(!silent)showToast("データの取得に失敗しました","err");
     console.error(e);
-  }).finally(function(){S.loading=false;S.syncing=false;render();});
+    S.syncing=false;
+    S.loading=false;
+    if(!silent)render();
+    updateSyncIndicator();
+  });
 }
 
-// ─── レンダリング ───
+// ─── メイン描画 ───
 function render(){
   var app=document.getElementById("app");if(!app)return;
   try{
@@ -134,7 +197,6 @@ function render(){
     h+='</div>';
     if(S.modal==="task")h+=renderTaskModal();
     if(S.modal==="member")h+=renderMemberModal();
-    if(S.toast)h+='<div class="toast" style="background:'+(S.toast.t==="err"?"#DC2626":"#1E293B")+'">'+esc(S.toast.m)+'</div>';
     app.innerHTML=h;
     var ti=document.getElementById("f-title");if(ti)setTimeout(function(){ti.focus();},50);
     var ni=document.getElementById("f-newmember");if(ni&&S.modal==="member")setTimeout(function(){ni.focus();},50);
@@ -175,7 +237,7 @@ function renderHeader(cnt){
     +'<div style="display:flex;align-items:center;gap:14px">'
     +'<div style="width:36px;height:36px;border-radius:10px;background:#1E293B;display:flex;align-items:center;justify-content:center;font-size:18px">📋</div>'
     +'<div><h1 style="font-size:18px;font-weight:800;letter-spacing:-0.02em">TaskBoard</h1>'
-    +'<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:'+syncCol+';font-weight:500">'
+    +'<div id="sync-indicator" style="display:flex;align-items:center;gap:6px;font-size:11px;color:'+syncCol+';font-weight:500">'
     +'<div style="width:7px;height:7px;border-radius:50%;'+syncDot+'"></div>'+syncTxt+'</div></div></div>'
     +'<div style="display:flex;align-items:center;gap:10px">'
     +'<div style="display:flex;gap:12px;margin-right:12px">'+stH+'</div>'
@@ -322,8 +384,13 @@ window._rmM=function(id){
 };
 
 // ─── 起動 ───
-if(SUPABASE_URL&&SUPABASE_ANON_KEY){loadData(false);setInterval(function(){loadData(true);},3000);}
-else{S.loading=false;render();}
+if(SUPABASE_URL&&SUPABASE_ANON_KEY){
+  loadData(false);
+  // ★ ポーリング間隔を5秒に（データ変更時のみ再描画）
+  setInterval(function(){loadData(true);}, 5000);
+} else {
+  S.loading=false;render();
+}
 
 })();
 </script>
