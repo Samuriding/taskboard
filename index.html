@@ -142,7 +142,8 @@ var S={tasks:[],members:[],sections:[],loading:true,syncing:false,lastSync:null,
   clickSecId:null,clickStartDate:null,
   memberUnlocked:false,passError:false,confirmDelMember:null,
   taskComments:[],commentsLoading:false,dark:false,
-  appUnlocked:false,appPassError:false
+  appUnlocked:false,appPassError:false,
+  prevTaskCount:-1,newTaskCount:0
 };
 function fmtD(d){var x=new Date(d);return(x.getMonth()+1)+"/"+x.getDate();}
 function toDS(d){var x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
@@ -182,7 +183,12 @@ function apiFetch(path,opts){return fetch(SUPABASE_URL+"/rest/v1/"+path,Object.a
 function loadData(silent){
   if(!silent)S.syncing=true;if(silent)updateSync();
   return Promise.all([apiFetch("tasks?order=start_date.asc").then(function(r){return r.json();}),apiFetch("members?order=created_at.asc").then(function(r){return r.json();}),apiFetch("sections?order=sort_order.asc,created_at.asc").then(function(r){return r.json();})]).then(function(res){
-    var nj=JSON.stringify(res);S.lastSync=new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});var changed=nj!==S.prevJSON;S.tasks=res[0];S.members=res[1];S.sections=res[2];S.prevJSON=nj;
+    var nj=JSON.stringify(res);S.lastSync=new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});var changed=nj!==S.prevJSON;
+    // ★ タスク追加検知（タブ通知）
+    var oldCount=S.prevTaskCount;var newCount=res[0].length;
+    if(oldCount>=0&&newCount>oldCount&&document.hidden){S.newTaskCount+=newCount-oldCount;updateTabBadge();}
+    S.prevTaskCount=newCount;
+    S.tasks=res[0];S.members=res[1];S.sections=res[2];S.prevJSON=nj;
     if(silent&&!changed){S.syncing=false;updateSync();return;}
     if(silent&&S.modal){S.syncing=false;updateSync();return;}
     S.syncing=false;S.loading=false;render();
@@ -450,6 +456,11 @@ window._addM=function(){var inp=document.getElementById("f-newmember");var name=
 window._rmM=function(id){S.confirmDelMember=id;render();};
 window._addSec=function(){var inp=document.getElementById("f-newsec");var name=inp?inp.value.trim():"";if(!name)return;var color=document.getElementById("f-seccolor").value||SEC_COLORS[0];var order=S.sections.length;apiFetch("sections",{method:"POST",body:JSON.stringify({name:name,color:color,sort_order:order})}).then(function(){showToast(name+" を追加しました");return loadData(true);}).then(function(){S.modal="section";render();}).catch(function(e){showToast("追加に失敗しました","err");console.error(e);});};
 window._rmSec=function(id){apiFetch("sections?id=eq."+id,{method:"DELETE"}).then(function(){showToast("セクションを削除しました");return loadData(true);}).then(function(){S.modal="section";render();}).catch(function(e){showToast("削除に失敗しました","err");console.error(e);});};
+// ★ タブ通知バッジ
+var ORIG_TITLE="TaskBoard";
+function updateTabBadge(){if(S.newTaskCount>0){document.title="(🔴"+S.newTaskCount+"件) "+ORIG_TITLE;}else{document.title=ORIG_TITLE;}}
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&S.newTaskCount>0){S.newTaskCount=0;updateTabBadge();}});
+
 // ★ セッション認証復元
 try{if(sessionStorage.getItem("tb_auth")==="1")S.appUnlocked=true;}catch(e){}
 try{if(localStorage.getItem("tb_dark")==="1"){S.dark=true;document.body.classList.add("dark");}}catch(e){}
