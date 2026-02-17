@@ -118,6 +118,8 @@
     /* ロックモーダル */
     body.dark [data-lock-bg]{background:#334155 !important}
     body.dark [data-del-bg]{background:#7F1D1D !important}
+    /* ログイン画面 */
+    body.dark [data-app-lock]{background:linear-gradient(135deg,#0F172A,#1E293B) !important}
   </style>
 </head>
 <body>
@@ -125,7 +127,8 @@
 <script>
 var SUPABASE_URL="https://gztmshxdtcjwsxkckhlt.supabase.co";
 var SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6dG1zaHhkdGNqd3N4a2NraGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTU1MzIsImV4cCI6MjA4NjIzMTUzMn0.a_cnZJyN9SbtA9ThVwZHKFqf9GGVQi8XzvclcKAntKM";
-var MEMBER_PASS="0926";
+var MEMBER_PASS="M48JIe9";
+var APP_PASS="N48JIe9"; // ★ アプリ全体のログインパスワード（変更可能）
 window.onerror=function(msg,src,line){var el=document.getElementById("app");if(el)el.innerHTML='<div class="err-box"><strong>エラー</strong><br>'+msg+'<br>行:'+line+'</div>';};
 (function(){
 var COLORS=[{bg:"#E8F5E9",bar:"#43A047",tx:"#2E7D32"},{bg:"#E3F2FD",bar:"#1E88E5",tx:"#1565C0"},{bg:"#FFF3E0",bar:"#FB8C00",tx:"#E65100"},{bg:"#F3E5F5",bar:"#8E24AA",tx:"#6A1B9A"},{bg:"#E0F7FA",bar:"#00ACC1",tx:"#00838F"},{bg:"#FBE9E7",bar:"#F4511E",tx:"#BF360C"},{bg:"#F1F8E9",bar:"#7CB342",tx:"#558B2F"},{bg:"#EDE7F6",bar:"#5E35B1",tx:"#4527A0"}];
@@ -136,7 +139,8 @@ var S={tasks:[],members:[],sections:[],loading:true,syncing:false,lastSync:null,
   // ガントチャート上クリック用の一時データ
   clickSecId:null,clickStartDate:null,
   memberUnlocked:false,passError:false,confirmDelMember:null,
-  taskComments:[],commentsLoading:false,dark:false
+  taskComments:[],commentsLoading:false,dark:false,
+  appUnlocked:false,appPassError:false
 };
 function fmtD(d){var x=new Date(d);return(x.getMonth()+1)+"/"+x.getDate();}
 function toDS(d){var x=new Date(d);return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
@@ -224,6 +228,8 @@ window._ganttClick=function(e,secId){
 function render(){
   var app=document.getElementById("app");if(!app)return;
   try{
+    // ★ アプリ全体ロック
+    if(!S.appUnlocked){app.innerHTML=renderAppLock();var ai=document.getElementById("f-apppass");if(ai)setTimeout(function(){ai.focus();},50);return;}
     if(!SUPABASE_URL||!SUPABASE_ANON_KEY){app.innerHTML=renderSetup();return;}
     if(S.loading){app.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px"><div style="width:40px;height:40px;border:3px solid #E8ECF1;border-top-color:#1E293B;border-radius:50%;animation:spin .8s linear infinite" data-bd></div><p style="color:#64748B;font-size:14px;font-weight:600" data-txs>データを読み込み中...</p></div>';return;}
     var filtered=S.tasks.filter(function(t){if(S.fA&&t.assignee!==S.fA)return false;if(S.fS&&t.status!==S.fS)return false;if(S.fSec&&S.fSec!=="__none__"&&t.section_id!==S.fSec)return false;return true;});
@@ -241,6 +247,10 @@ function render(){
   }catch(e){console.error(e);app.innerHTML='<div class="err-box"><strong>描画エラー</strong><br>'+esc(e.message)+'</div>';}
 }
 function renderSetup(){return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#F8FAFC,#E2E8F0)"><div style="background:#fff;border-radius:20px;padding:48px 44px;max-width:560px;width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.08)"><div style="display:flex;align-items:center;gap:14px;margin-bottom:28px"><div style="width:48px;height:48px;border-radius:14px;background:#1E293B;display:flex;align-items:center;justify-content:center;font-size:24px">📋</div><div><h1 style="font-size:22px;font-weight:800">TaskBoard</h1><p style="font-size:12px;color:#94A3B8">初期セットアップ</p></div></div><div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px 20px;margin-bottom:24px"><p style="font-size:13px;color:#92400E;font-weight:600">⚠️ Supabaseの設定が必要です</p><p style="margin-top:8px;font-size:12px;color:#A16207;line-height:1.7">SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。</p></div></div></div>';}
+function renderAppLock(){
+  var errH=S.appPassError?'<div style="color:#DC2626;font-size:12px;font-weight:600;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:4px"><span>⚠️</span> パスワードが正しくありません</div>':"";
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#F8FAFC,#E2E8F0)" data-app-lock><div data-card style="background:#fff;border-radius:24px;padding:56px 48px;max-width:420px;width:90vw;box-shadow:0 25px 80px rgba(0,0,0,.1);text-align:center;animation:fadeIn .4s ease"><div style="width:72px;height:72px;border-radius:20px;background:#1E293B;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 20px">📋</div><h1 style="font-size:24px;font-weight:800;margin-bottom:4px" data-tx>TaskBoard</h1><p style="font-size:13px;margin-bottom:32px" data-txm>チームタスク管理</p><div style="text-align:left;margin-bottom:8px"><label class="fl">パスワード</label><input class="fi" id="f-apppass" type="password" placeholder="パスワードを入力" onkeydown="if(event.key===\'Enter\')window._appLogin()" style="text-align:center;font-size:18px;letter-spacing:6px"></div>'+errH+'<button class="btn" onclick="window._appLogin()" style="width:100%;padding:14px;border-radius:12px;background:#1E293B;color:#fff;font-size:15px;font-weight:700;margin-top:16px;box-shadow:0 4px 12px rgba(30,41,59,.2)" data-btn-a>ログイン</button><p style="font-size:10px;margin-top:24px" data-txf>🔒 アクセスにはパスワードが必要です</p></div></div>';
+}
 function renderAlertBanner(){
   var urgent=[];
   for(var i=0;i<S.tasks.length;i++){var t=S.tasks[i],u=getUrgency(t);if(u.level==="overdue"||u.level==="today"||u.level==="soon")urgent.push({task:t,urg:u});}
@@ -406,6 +416,7 @@ function renderSectionModal(){
 }
 
 // ─── グローバルイベント ───
+window._appLogin=function(){var inp=document.getElementById("f-apppass");var val=inp?inp.value:"";if(val===APP_PASS){S.appUnlocked=true;S.appPassError=false;try{sessionStorage.setItem("tb_auth","1");}catch(e){}if(SUPABASE_URL&&SUPABASE_ANON_KEY){S.loading=true;render();loadData(false);setInterval(function(){loadData(true);},5000);}else{render();}}else{S.appPassError=true;render();}};
 window._toggleDark=function(){S.dark=!S.dark;document.body.classList.toggle("dark",S.dark);try{localStorage.setItem("tb_dark",S.dark?"1":"0");}catch(e){}render();};
 window._openTask=function(){S.clickSecId=null;S.clickStartDate=null;S.eTask=null;S.modal="task";render();};
 window._editT=function(id){S.clickSecId=null;S.clickStartDate=null;for(var i=0;i<S.tasks.length;i++){if(S.tasks[i].id===id){S.eTask=S.tasks[i];break;}}S.modal="task";S.taskComments=[];S.commentsLoading=true;render();loadComments(id);};
@@ -437,8 +448,10 @@ window._addM=function(){var inp=document.getElementById("f-newmember");var name=
 window._rmM=function(id){S.confirmDelMember=id;render();};
 window._addSec=function(){var inp=document.getElementById("f-newsec");var name=inp?inp.value.trim():"";if(!name)return;var color=document.getElementById("f-seccolor").value||SEC_COLORS[0];var order=S.sections.length;apiFetch("sections",{method:"POST",body:JSON.stringify({name:name,color:color,sort_order:order})}).then(function(){showToast(name+" を追加しました");return loadData(true);}).then(function(){S.modal="section";render();}).catch(function(e){showToast("追加に失敗しました","err");console.error(e);});};
 window._rmSec=function(id){apiFetch("sections?id=eq."+id,{method:"DELETE"}).then(function(){showToast("セクションを削除しました");return loadData(true);}).then(function(){S.modal="section";render();}).catch(function(e){showToast("削除に失敗しました","err");console.error(e);});};
+// ★ セッション認証復元
+try{if(sessionStorage.getItem("tb_auth")==="1")S.appUnlocked=true;}catch(e){}
 try{if(localStorage.getItem("tb_dark")==="1"){S.dark=true;document.body.classList.add("dark");}}catch(e){}
-if(SUPABASE_URL&&SUPABASE_ANON_KEY){loadData(false);setInterval(function(){loadData(true);},5000);}else{S.loading=false;render();}
+if(SUPABASE_URL&&SUPABASE_ANON_KEY){if(S.appUnlocked){loadData(false);setInterval(function(){loadData(true);},5000);}else{S.loading=false;render();}}else{S.loading=false;render();}
 })();
 </script>
 </body>
