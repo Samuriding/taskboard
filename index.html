@@ -32,6 +32,7 @@
     .fr{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     .toast{position:fixed;bottom:24px;right:24px;z-index:2000;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);color:#fff;animation:toastIn .3s ease}
     .tl-row:hover{background:#FAFBFE !important}
+    .tl-row:hover [data-sticky-cell]{background:#FAFBFE !important}
     .tl-bar{transition:transform .15s,box-shadow .15s}.tl-bar:hover{transform:scaleY(1.15)}
     .lc:hover{box-shadow:0 2px 12px rgba(0,0,0,.06) !important}
     .sec-row{background:#F8FAFC;border-bottom:1px solid #E8ECF1}
@@ -69,6 +70,7 @@
     body.dark .sec-row span[style*="color:#94A3B8"]{color:#64748B !important}
     body.dark .sec-row div[style*="background:#E8ECF1"]{background:#334155 !important}
     body.dark .tl-row:hover{background:#253045 !important}
+    body.dark .tl-row:hover [data-sticky-cell]{background:#253045 !important}
     body.dark .lc:hover{box-shadow:0 2px 12px rgba(0,0,0,.3) !important}
     body.dark .gantt-hint{background:#E2E8F0;color:#0F172A}
     body.dark .empty-sec-row{border-color:#253045 !important}
@@ -112,6 +114,9 @@
     body.dark .tl-row{border-color:#1E293B !important}
     body.dark [data-tleft]{border-color:#334155 !important}
     body.dark [data-ga]{border-color:#253045 !important}
+    /* ★ 固定左パネルの背景（横スクロール時に透けないように） */
+    body.dark [data-sticky-cell]{background:#1E293B !important}
+    body.dark [data-sticky-sec]{background:#172033 !important}
     /* フィルタボタン非活性 */
     body.dark [data-fb]{background:#1E293B !important;color:#64748B !important}
     body.dark [data-fb-a]{color:#E2E8F0 !important;background:#334155 !important;border-color:#94A3B8 !important}
@@ -315,7 +320,7 @@ function renderTimeline(tasks){
 
     // セクションヘッダー行
     rH+='<div class="sec-row" style="display:flex">';
-    rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:10px 16px;border-right:1px solid #E8ECF1;display:flex;align-items:center;gap:10px">';
+    rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:10px 16px;border-right:1px solid #E8ECF1;display:flex;align-items:center;gap:10px;position:sticky;left:0;z-index:3;background:#F8FAFC" data-sticky-sec data-bd>';
     rH+='<div style="width:4px;height:24px;border-radius:2px;background:'+sec2.color+'"></div>';
     rH+='<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:#1E293B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" data-tx>'+esc(sec2.name)+'</div>';
     if(gTasks.length>0){
@@ -333,7 +338,7 @@ function renderTimeline(tasks){
     // タスク0のセクション（空行を1つ表示）
     if(gTasks.length===0){
       rH+='<div class="empty-sec-row" style="display:flex;cursor:pointer" onclick="window._ganttClick(event,\''+secIdSafe+'\')">';
-      rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:10px 16px 10px 36px;border-right:1px solid #F1F5F9;display:flex;align-items:center" data-bdl">';
+      rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:10px 16px 10px 36px;border-right:1px solid #F1F5F9;display:flex;align-items:center;position:sticky;left:0;z-index:3;background:#fff" data-sticky-cell data-bdl>';
       rH+='<div class="add-task-hint"><span style="font-size:14px">+</span> タスクを追加...</div>';
       rH+='</div>';
       rH+='<div class="gantt-area" style="flex:1;height:40px;position:relative">';
@@ -351,7 +356,7 @@ function renderTimeline(tasks){
       var barLabel=barW>60?'<span style="opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:'+(barW-20)+'px;display:inline-block">'+esc(t.title)+'</span>':"";
 
       rH+='<div class="tl-row" style="display:flex;border-bottom:1px solid #F1F5F9;cursor:pointer">';
-      rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:8px 16px 8px 36px;border-right:1px solid #F1F5F9;display:flex;align-items:center;gap:8px" data-tleft data-bdl" onclick="window._editT(\''+escA(t.id)+'\')">';
+      rH+='<div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;padding:8px 16px 8px 36px;border-right:1px solid #F1F5F9;display:flex;align-items:center;gap:8px;position:sticky;left:0;z-index:3;background:#fff" data-sticky-cell data-tleft data-bdl onclick="window._editT(\''+escA(t.id)+'\')">';
       rH+='<span style="font-size:11px;color:'+st.c+'">'+st.i+'</span>';
       rH+='<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:'+(t.status==="done"?"line-through":"none")+';opacity:'+(t.status==="done"?.5:1)+'" data-tx>'+esc(t.title)+'</div>';
       rH+='<div style="display:flex;align-items:center;gap:4px;margin-top:2px"><span style="font-size:10px;font-weight:600;color:'+c.tx+';background:'+c.bg+';padding:0 7px;border-radius:8px;line-height:18px">'+esc(t.assignee)+'</span>';
@@ -366,7 +371,7 @@ function renderTimeline(tasks){
     }
   }
 
-  return '<div style="background:#fff;border-radius:16px;border:1px solid #E8ECF1;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);animation:fadeIn .3s ease" data-card><div id="gantt-scroll" data-today-off="'+todayOff+'" style="overflow-x:auto"><div style="min-width:'+(total*DW+LEFT_W)+'px"><div style="display:flex;border-bottom:1px solid #F1F5F9"><div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;border-right:1px solid #F1F5F9;padding:10px 16px;font-size:11px;font-weight:700;color:#94A3B8" data-bdl data-txm>セクション / タスク</div><div style="display:flex;flex:1">'+mH+'</div></div><div style="display:flex;border-bottom:1px solid #E8ECF1"><div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;border-right:1px solid #F1F5F9"></div><div style="display:flex">'+dH+'</div></div>'+rH+'</div></div></div>';
+  return '<div style="background:#fff;border-radius:16px;border:1px solid #E8ECF1;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);animation:fadeIn .3s ease" data-card><div id="gantt-scroll" data-today-off="'+todayOff+'" style="overflow-x:auto"><div style="min-width:'+(total*DW+LEFT_W)+'px"><div style="display:flex;border-bottom:1px solid #F1F5F9"><div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;border-right:1px solid #F1F5F9;padding:10px 16px;font-size:11px;font-weight:700;color:#94A3B8;position:sticky;left:0;z-index:4;background:#fff" data-sticky-cell data-bdl data-txm>セクション / タスク</div><div style="display:flex;flex:1">'+mH+'</div></div><div style="display:flex;border-bottom:1px solid #E8ECF1"><div style="width:'+LEFT_W+'px;min-width:'+LEFT_W+'px;border-right:1px solid #F1F5F9;position:sticky;left:0;z-index:4;background:#fff" data-sticky-cell data-bdl></div><div style="display:flex">'+dH+'</div></div>'+rH+'</div></div></div>';
 }
 
 function renderList(tasks){
